@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 
 <html>
+<head>
+<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous"></head>
 <style>
   body {
     height:100%;
@@ -9,10 +11,36 @@
 </style>
   <body>
 
-    <div class="main-content">
-      <div id="battery">
+    <div class="container-fluid" style="padding: 30px">
+        <div class="row">
+          <div class="col-xs-12 col-xl-6" id="battery">
+
+          </div>
+          <div class="col-xs-12 col-xl-6" id="status">
+
+          </div>
+        </div>
+
+        <div class="row">
+
+          <div class="col-xl-6 col-xs-12">
+            <button class="btn btn-primary" id="armThrottle">ARM</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-xl-6 col-xs-12 form" style="padding-top: 30px">
+            <div class="form-group">
+              <label>Altitude</label>
+              <input id="altitude" class="form-control" type="number" min=10 max=100 value="40"></input>
+            </div>
+            <div class="form-group">
+              <button class="btn btn-primary" id="takeoff">TAKEOFF</button>
+            </div>
+          </div>
 
         </div>
+
+
     </div>
     <script
     src="https://code.jquery.com/jquery-1.12.4.min.js"
