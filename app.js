@@ -177,9 +177,68 @@ setInterval(function(){
       lastMsg = direction
       return
     }
-    console.log('Publishing vel');
+    //console.log('Publishing vel');
     socket.emit('cmd_vel', {copterId: 'mavros', ...direction})
     lastMsg = direction
 
   }
 }, 100)
+
+const refreshRate = 100;
+const output = document.getElementById('output');
+setInterval(getGamepadState, refreshRate);
+function getGamepadState() {
+    // Returns up to 4 gamepads.
+    const gamepads = navigator.getGamepads();
+    // We take the first one, for simplicity
+    const gamepad = gamepads[0];
+    // Escape if no gamepad was found
+    if (!gamepad) {
+        //console.log('No gamepad found.');
+        return;
+    }
+    // Filter out only the buttons which are pressed
+    const pressedButtons = gamepad.buttons
+        .map((button, id) => ({id, button}))
+        .filter((btn) => !!btn.button.pressed);
+    // Print the pressed buttons to our HTML
+    if(!pressedButtons.length){
+      direction = {
+        x: 0,
+        y: 0,
+        z: 0
+      }
+    }
+    for (const button of pressedButtons) {
+        if (button.id === 2 /* ctrl */){
+          direction = {
+            x: 0,
+            y: 0,
+            z: 0
+          }
+          land()
+          return
+        }
+        if(button.id === 7){ //r2
+          direction.x = -1
+        }
+        if (button.id === 12 /* up arrow */){
+          direction.y = 1
+        }
+        if (button.id === 15 /* right */){
+          direction.x = 1
+        }
+        if (button.id === 13 /* down */){
+          direction.y = -1
+        }
+        if (button.id === 14 /* left */){
+          direction.x = -1
+        }
+        if (button.id === 7 /* r2 */ || button.id === 0 /* x */){
+          direction.z = 1
+        }
+        if (button.id === 6 /* ctrl */){
+          direction.z = -1
+        }
+    }
+}
