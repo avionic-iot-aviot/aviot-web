@@ -1,24 +1,43 @@
 
-var socket = io('http://192.168.100.209:9000')
 var listenerStatus = false
 var latitude, longitude, altitude
-function onConnect(){
-  socket.emit('connect_to_copter', 'mavros')
-  socket.on('/mavros/battery', updateBatteryInfo)
-  socket.on('/mavros/state', onStateUpdate)
-  socket.on('/mavros/global_position/global', onGlobalPosUpdate)
-  socket.on('/mavros/global_position/rel_alt',onRelAltUpdate)
 
+
+/**
+ * Events: 
+ * - connect
+ * - battery
+ * - state
+ * - global_position
+ * - rel_alt
+ */
+
+
+
+let mavros = new AviotCopter('mavros', '', 'http://192.168.100.209:9000')
+
+
+mavros.on('connect', function(){
+  console.log('connected')
+})
+mavros.on('state', onStateUpdate)
+mavros.on('battery', updateBatteryInfo)
+mavros.on('global_position', onGlobalPosUpdate)
+mavros.on('relative_altitude', onRelAltUpdate)
+mavros.on('error', onError)
+
+function onError(err){
+  //handle errors
+  console.error(err)
 }
 function onGlobalPosUpdate(msg){
   latitude = msg.latitude
   longitude = msg.longitude
-  $('#lat').html(latitude)
+  $('#lat').html(latitude) 
   $('#lng').html(longitude)
 }
 
 function onRelAltUpdate(msg){
-  console.log($('#land').attr('disabled'))
   if(Math.round(msg) > 1){
     $('#land').attr('disabled', false)
     $('#takeoff').attr('disabled', true)
@@ -63,35 +82,30 @@ function updateBatteryInfo (data) {
 
 function armThrottle () {
   console.log('arming mavros');
-  socket.emit('arm', {copterId: 'mavros'})
+  mavros.armThrottle()
 }
 function takeoff() {
   console.log('taking off');
-  socket.emit('takeoff', {copterId: 'mavros', latitude, longitude, altitude: Number($('#altitude').val()) })
+  mavros.takeoff(latitude, longitude, Number($('#altitude').val()))
 }
 
 function land(){
-  socket.emit('land', {copterId: 'mavros', latitude, longitude, altitude: 0} )
+  mavros.land(latitude, longitude, 0)
 }
+
 $('#armThrottle').click(armThrottle)
 $('#takeoff').click(takeoff)
 $('#land').click(land)
-
-socket.on('connect', onConnect)
-socket.on('error', function(err){
-  console.log(err)
-})
-
-
-
-
 
 
 document.addEventListener('keydown',press)
 var direction = {
   x: 0,
   y: 0,
-  z: 0
+  z: 0,
+  _x: 0,
+  _y: 0,
+  _z: 0
 }
 
 
@@ -108,43 +122,61 @@ function press(e){
   if (e.keyCode === 38 /* up */ || e.keyCode === 87 /* w */ || e.keyCode === 90 /* z */){
     direction = {
       x: 0,
-      y: 1,
-      z: 0
+      y: 0.5,
+      z: 0,
+      _x: 0,
+      _y: 1,
+      _z: 0
     }
   }
   if (e.keyCode === 39 /* right */ || e.keyCode === 68 /* d */){
     direction = {
-      x: 1,
+      x: 0.5,
       y: 0,
-      z: 0
+      z: 0,
+      _x: 0,
+      _y: 0,
+      _z: -0.5
     }
   }
   if (e.keyCode === 40 /* down */ || e.keyCode === 83 /* s */){
     direction = {
       x: 0,
-      y: -1,
-      z: 0
+      y: -0.5,
+      z: 0,
+      _x: 0,
+      _y: 0,
+      _z: 0
     }
   }
   if (e.keyCode === 37 /* left */ || e.keyCode === 65 /* a */ || e.keyCode === 81 /* q */){
     direction = {
-      x: -1,
+      x: -0.5,
       y: 0,
-      z: 0
+      z: 0,
+      _x: 0,
+      _y: 0,
+      _z: 0.5
     }
   }
   if (e.keyCode === 32 /* space */ || e.keyCode === 16 /* shift */){
     direction = {
       x: 0,
       y: 0,
-      z: 1
+      z: 0.5,
+      _x: 0,
+      _y: 0,
+      _z: 0
     }
   }
   if (e.keyCode === 17 /* ctrl */){
     direction = {
       x: 0,
       y: 0,
-      z: -1
+      z: -0.5,
+      _x: 0,
+      _y: 0,
+      _z: 0
     }
   }
   publish = true
@@ -162,7 +194,10 @@ function release(e){
   direction = {
     x: 0,
     y: 0,
-    z: 0
+    z: 0,
+    _x: 0,
+    _y: 0,
+    _z: 0
   }
   publish = false
   console.log(publish);
@@ -178,7 +213,8 @@ setInterval(function(){
       return
     }
     //console.log('Publishing vel');
-    socket.emit('cmd_vel', {copterId: 'mavros', ...direction})
+    const { x, y, z, _x, _y, _z} = direction
+    mavros.cmdVel({x, y, z}, {x: _x, y: _y, z: _z})
     lastMsg = direction
 
   }
@@ -187,6 +223,8 @@ setInterval(function(){
 const refreshRate = 100;
 const output = document.getElementById('output');
 setInterval(getGamepadState, refreshRate);
+
+
 function getGamepadState() {
     // Returns up to 4 gamepads.
     const gamepads = navigator.getGamepads();
