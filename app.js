@@ -1,10 +1,9 @@
-
 var listenerStatus = false
 var latitude, longitude, altitude
 
 
 /**
- * Events: 
+ * Events:
  * - connect
  * - battery
  * - state
@@ -14,26 +13,37 @@ var latitude, longitude, altitude
 
 
 
-let mavros = new AviotCopter('mavros', '', 'http://192.168.100.209:9000')
-
+let mavros = new AviotCopter('mavros', '', 'http://192.168.1.14:9000')
 
 mavros.on('connect', function(){
   console.log('connected')
+  $('#video').append('<video class="rounded centered" id="remotevideo" width="100%" height="100%" autoplay playsinline/>')
 })
 mavros.on('state', onStateUpdate)
 mavros.on('battery', updateBatteryInfo)
 mavros.on('global_position', onGlobalPosUpdate)
 mavros.on('relative_altitude', onRelAltUpdate)
 mavros.on('error', onError)
+mavros.on('streaming', onStreaming)
+mavros.on('video_room', onVideoRoom)
 
 function onError(err){
   //handle errors
   console.error(err)
 }
+
+function onStreaming(msg){
+  startJanusStream(msg, $('#remotevideo'));
+console.log(msg)
+}
+function onVideoRoom(msg){
+  console.log(msg)
+  startJanusVideoRoom(msg, $('#remotevideo'))
+}
 function onGlobalPosUpdate(msg){
   latitude = msg.latitude
   longitude = msg.longitude
-  $('#lat').html(latitude) 
+  $('#lat').html(latitude)
   $('#lng').html(longitude)
 }
 
@@ -93,6 +103,38 @@ function land(){
   mavros.land(latitude, longitude, 0)
 }
 
+
+function startStreaming(){
+  mavros.startStreaming()
+  $('#streaming').html('STOP STREAMING')
+  $('#streaming').attr('onclick', 'stopStreaming()')
+  $('#streaming').attr('class', 'btn btn-warning')
+
+}
+function stopStreaming(){
+  stopJanusStream();
+  mavros.stopStreaming()
+  $('#streaming').html('START STREAMING')
+  $('#streaming').attr('onclick', 'startStreaming()')
+  $('#streaming').attr('class', 'btn btn-success')
+
+}
+
+function startVideoRoom(){
+  mavros.startVideoRoom()
+  $('#videoroom').html('STOP VIDEO ROOM')
+  $('#videoroom').attr('onclick', 'stopVideoRoom()')
+  $('#videoroom').attr('class', 'btn btn-warning')
+}
+function stopVideoRoom(){
+  mavros.stopVideoRoom()
+  stopJanusVideoRoom()
+  $('#videoroom').html('START VIDEO ROOM')
+  $('#videoroom').attr('onclick', 'startVideoRoom()')
+  $('#videoroom').attr('class', 'btn btn-success')
+}
+
+
 $('#armThrottle').click(armThrottle)
 $('#takeoff').click(takeoff)
 $('#land').click(land)
@@ -125,7 +167,7 @@ function press(e){
       y: 0.5,
       z: 0,
       _x: 0,
-      _y: 1,
+      _y: 0,
       _z: 0
     }
   }
@@ -136,7 +178,7 @@ function press(e){
       z: 0,
       _x: 0,
       _y: 0,
-      _z: -0.5
+      _z: 0
     }
   }
   if (e.keyCode === 40 /* down */ || e.keyCode === 83 /* s */){
@@ -156,7 +198,7 @@ function press(e){
       z: 0,
       _x: 0,
       _y: 0,
-      _z: 0.5
+      _z: 0
     }
   }
   if (e.keyCode === 32 /* space */ || e.keyCode === 16 /* shift */){

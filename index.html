@@ -2,70 +2,153 @@
 
 <html>
 <head>
-<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous"></head>
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous"></head>
 <style>
   body {
     height:100%;
     max-width: 100%;
   }
 </style>
-  <body>
+<body>
 
-    <div class="container-fluid" style="padding: 30px">
-        <div class="row">
-          <div class="col-xs-12 col-xl-6" id="battery">
+<div class="container-fluid" style="padding: 30px">
+  <div class="row">
+    <div class="col-xs-12 col-xl-6">
+      <div class="col-xs-12 col-xl-12" id="battery">
 
-          </div>
-          <div class="col-xs-12 col-xl-6" id="status">
+      </div>
+      <div class="col-xs-12 col-xl-12" id="status">
 
-          </div>
+      </div>
+
+      <div class="col-xl-6 col-xs-12">
+        <button class="btn btn-primary" id="armThrottle">ARM</button>
+      </div>
+      <div class="col-xl-6 col-xs-12 form" style="padding-top: 30px">
+        <div class="form-group">
+          <label>Altitude</label>
+          <input id="altitude" class="form-control" type="number" min=10 max=100 value="40"></input>
         </div>
-
-        <div class="row">
-
-          <div class="col-xl-6 col-xs-12">
-            <button class="btn btn-primary" id="armThrottle">ARM</button>
-          </div>
+        <div class="form-group">
+          <button class="btn btn-success" id="takeoff" disabled>TAKEOFF</button>
+          <button class="btn btn-warning" id="land" disabled>LAND</button>
+          <button class="btn btn-success" id="streaming" disabled onclick="startStreaming()">START STREAMING</button>
+          <button class="btn btn-success" id="videoroom" onclick="startVideoRoom()">START VIDEO ROOM</button>
         </div>
-        <div class="row">
-          <div class="col-xl-6 col-xs-12 form" style="padding-top: 30px">
-            <div class="form-group">
-              <label>Altitude</label>
-              <input id="altitude" class="form-control" type="number" min=10 max=100 value="40"></input>
-            </div>
-            <div class="form-group">
-              <button class="btn btn-success" id="takeoff" disabled>TAKEOFF</button>
-              <button class="btn btn-warning" id="land" disabled>LAND</button>
-            </div>
-          </div>
+      </div>
 
-        </div>
+      <div class="col-xs-12 col-xl-12">
 
-        <table class="table table-striped table-dark">
-  <thead>
-    <tr>
-      <th scope="col">Latitude</th>
-      <th scope="col">Longitude</th>
-      <th scope="col">Altitude</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td id="lat">0</td>
-      <td id="lng">0</td>
-      <td id="alt">0</td>
-    </tr>
-  </tbody>
-</table>
+      <table class="table table-striped table-dark">
+        <thead>
+        <tr>
+          <th scope="col">Latitude</th>
+          <th scope="col">Longitude</th>
+          <th scope="col">Altitude</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td id="lat">0</td>
+          <td id="lng">0</td>
+          <td id="alt">0</td>
+        </tr>
+        </tbody>
+      </table>
+      </div>
+
     </div>
+    <div class="col-xs-12 col-xl-6">
+      <div class="col-xs-12 col-xl-12" id="video">
 
-    <script
-    src="https://code.jquery.com/jquery-1.12.4.min.js"
-    integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="
-    crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.4/socket.io.min.js"></script>
-  <script src="aviot.js"></script>
-  <script src="app.js"></script>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="container" id="videos">
+  <div class="row">
+    <div class="col-md-4">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h3 class="panel-title">Local Video <span class="label label-primary hide" id="publisher"></span>
+            <div class="btn-group btn-group-xs pull-right hide">
+              <div class="btn-group btn-group-xs">
+                <button id="bitrateset" autocomplete="off" class="btn btn-primary dropdown-toggle" data-toggle="dropdown">
+                  Bandwidth<span class="caret"></span>
+                </button>
+                <ul id="bitrate" class="dropdown-menu" role="menu">
+                  <li><a href="#" id="0">No limit</a></li>
+                  <li><a href="#" id="128">Cap to 128kbit</a></li>
+                  <li><a href="#" id="256">Cap to 256kbit</a></li>
+                  <li><a href="#" id="512">Cap to 512kbit</a></li>
+                  <li><a href="#" id="1024">Cap to 1mbit</a></li>
+                  <li><a href="#" id="1500">Cap to 1.5mbit</a></li>
+                  <li><a href="#" id="2000">Cap to 2mbit</a></li>
+                </ul>
+              </div>
+            </div>
+          </h3>
+        </div>
+        <div class="panel-body" id="videolocal"></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h3 class="panel-title">Remote Video #1 <span class="label label-info hide" id="remote1"></span></h3>
+        </div>
+        <div class="panel-body relative" id="videoremote1"></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h3 class="panel-title">Remote Video #2 <span class="label label-info hide" id="remote2"></span></h3>
+        </div>
+        <div class="panel-body relative" id="videoremote2"></div>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-md-4">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h3 class="panel-title">Remote Video #3 <span class="label label-info hide" id="remote3"></span></h3>
+        </div>
+        <div class="panel-body relative" id="videoremote3"></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h3 class="panel-title">Remote Video #4 <span class="label label-info hide" id="remote4"></span></h3>
+        </div>
+        <div class="panel-body relative" id="videoremote4"></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h3 class="panel-title">Remote Video #5 <span class="label label-info hide" id="remote5"></span></h3>
+        </div>
+        <div class="panel-body relative" id="videoremote5"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
-  </body>
+<script
+        src="https://code.jquery.com/jquery-1.12.4.min.js"
+        integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.4/socket.io.min.js"></script>
+<script src="config.js"></script>
+<script src="adapter.js"></script>
+<script src="janus.js"></script>
+<script src="aviot.js"></script>
+<script src="streaming.js"></script>
+<script src="videoroom.js"></script>
+<script src="app.js"></script>
+
+</body>
 </html>
