@@ -1,6 +1,6 @@
 var listenerStatus = false
 var latitude, longitude, altitude
-
+var muted = false
 
 /**
  * Events:
@@ -13,7 +13,7 @@ var latitude, longitude, altitude
 
 
 
-let mavros = new AviotCopter('mavros', '', 'http://192.168.1.14:9000')
+let mavros = new AviotCopter('mavros', '', 'http://192.168.1.34:9000')
 
 mavros.on('connect', function(){
   console.log('connected')
@@ -121,20 +121,46 @@ function stopStreaming(){
 }
 
 function startVideoRoom(){
+
   mavros.startVideoRoom()
+  $('#videoroom-container').attr('class', 'container-fluid')
   $('#videoroom').html('STOP VIDEO ROOM')
   $('#videoroom').attr('onclick', 'stopVideoRoom()')
   $('#videoroom').attr('class', 'btn btn-warning')
+  $('#exit-video-room').attr('class', 'btn btn-warning')
+  $('#mute-mic').attr('class', 'btn btn-warning')
+  muted = false
 }
 function stopVideoRoom(){
-  mavros.stopVideoRoom()
   stopJanusVideoRoom()
+  mavros.stopVideoRoom()
   $('#videoroom').html('START VIDEO ROOM')
   $('#videoroom').attr('onclick', 'startVideoRoom()')
   $('#videoroom').attr('class', 'btn btn-success')
+  $('#exit-video-room').attr('class', 'btn btn-warning d-none')
+  $('#mute-mic').attr('class', 'btn btn-warning d-none')
+  $('#videolocal').append('')
+  $('#videoroom-container').attr('class', 'container-fluid d-none')
+
+}
+function exitVideoRoom(){
+  unpublishOwnFeed()
+  $('#exit-video-room').attr('class', 'btn btn-success')
+  $('#exit-video-room').html('JOIN VIDEO ROOM')
+  $('#exit-video-room').attr('onclick', 'joinVideoRoom()')
+}
+function joinVideoRoom(){
+  publishOwnFeed()
+  $('#exit-video-room').attr('class', 'btn btn-warning')
+  $('#exit-video-room').html('LEAVE VIDEO ROOM')
+  $('#exit-video-room').attr('onclick', 'exitVideoRoom()')
 }
 
-
+function mute(){
+  toggleMute()
+  muted = !muted
+  $('#mute-mic').html(muted ? 'UNMUTE MIC' : 'MUTE MIC')
+}
 $('#armThrottle').click(armThrottle)
 $('#takeoff').click(takeoff)
 $('#land').click(land)
