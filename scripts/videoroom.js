@@ -1,6 +1,9 @@
 var vrOpaqueId = "aviotvideoroom-"+Janus.randomString(12);
 
-Janus.init({debug: 'all', callback: onInitVrJanus})
+Janus.init({
+  //debug: 'all',
+  callback: onInitVrJanus
+})
 var videoRoomEl, roomName, roomPin, janusVr, sfutest, myid, mypvtid
 var feeds = [], mystream = null
 var bitrateTimer = [];
@@ -63,21 +66,6 @@ function onCreateJanusVrSuccess() {
       //$("#videolocal").parent().parent().unblock();
       if(!on)
         return;
-      $('#publish').remove();
-      // This controls allows us to override the global room bitrate cap
-      $('#bitrate').parent().parent().removeClass('hide').show();
-      $('#bitrate a').click(function() {
-        var id = $(this).attr("id");
-        var bitrate = parseInt(id)*1000;
-        if(bitrate === 0) {
-          Janus.log("Not limiting bandwidth via REMB");
-        } else {
-          Janus.log("Capping bandwidth to " + bitrate + " via REMB");
-        }
-        $('#bitrateset').html($(this).html() + '<span class="caret"></span>').parent().removeClass('open');
-        sfutest.send({ message: { request: "configure", bitrate: bitrate }});
-        return false;
-      });
     },
     mediaState: function(medium, on) {
       Janus.log("Janus " + (on ? "started" : "stopped") + " receiving our " + medium);
@@ -95,150 +83,113 @@ function onVrAttachError(error){
   Janus.error("  -- Error attaching plugin...", error);
 }
 
+function handleVideRoomEvent(msg){
+  
+  msg.publishers && onNewJoiner(msg.publishers)
+
+  msg.leaving && onLeave(msg.leaving)
+
+  msg.unpublished && onUnpublish(msg.unpublished)
+
+  msg.error && onVideRoomError(msg)
+}
+
+function onVideoRoomDestroyed(msg){
+  console.log("Video room destroyed", msg)
+}
+
+function onNewJoiner(list){
+  list.forEach(({id, display, audio_codec, video_codec}) => {
+    newRemoteFeed(id, display, audio_codec, video_codec)
+  })
+}
+
+function onLeave(publisherId){
+  
+  console.log("Publisher left: " + publisherId);
+  var remoteFeed = null;
+
+  remoteFeed = feeds.find(f => f.rfid === publisherId)
+  
+  if(remoteFeed){
+    //TODO: Hide feed container
+    console.log("Feed " + remoteFeed.rfid + " (" + remoteFeed.rfdisplay + ") has left the room, detaching");
+    remoteFeed.detach()
+  }
+  
+}
+
+function onUnpublish(unpublished){
+  if(unpublished === 'ok') {
+    sfutest.hangup();
+    return;
+  }
+  onLeave(unpublished)
+}
+
+function onJoin(msg){
+  myid = msg.id
+  mypvtid = msg.private_id
+  msg.publishers && onNewJoiner(msg.publishers)
+  publishOwnFeed()
+}
+
+function onVideRoomError(error){
+  if(error.error_code === 429){
+    alert("Room not found")
+  }
+  console.error(error.error)
+}
+
+function handleJsep(jsep, audio_codec, video_codec){
+  sfutest.handleRemoteJsep({ jsep: jsep });
+  
+  // Check if any of the media we wanted to publish has
+  // been rejected (e.g., wrong or unsupported codec)
+  if(mystream && mystream.getAudioTracks() && mystream.getAudioTracks().length > 0 && !audio_codec) {
+    // Audio has been rejected
+    alert("Our audio stream has been rejected, viewers won't hear us")
+    console.warning("Our audio stream has been rejected, viewers won't hear us");
+  }
+
+  if(mystream && mystream.getVideoTracks() && mystream.getVideoTracks().length > 0 && !video_codec) {
+    // Hide the webcam video
+    // TODO: handle hide webcam
+  }
+}
+
 
 function onAttachVrMessage(msg, jsep){
   Janus.debug(" ::: Got a message (publisher) :::", msg);
   var event = msg["videoroom"];
+
   Janus.debug("Event: " + event);
+  
   if(event) {
     if(event === "joined") {
-      // Publisher/manager created, negotiate WebRTC and attach to existing feeds, if any
-      myid = msg["id"];
-      mypvtid = msg["private_id"];
-      Janus.log("Successfully joined room " + msg["room"] + " with ID " + myid);
-      /*
-      if(subscriber_mode) {
-        $('#videojoin').hide();
-        $('#videos').removeClass('hide').show();
-      } else {
-        publishOwnFeed(true);
-      }
-
-       */
-      publishOwnFeed(true);
-
-      // Any new feed to attach to?
-      if(msg["publishers"]) {
-        var list = msg["publishers"];
-        Janus.debug("Got a list of available publishers/feeds:", list);
-        for(var f in list) {
-          var id = list[f]["id"];
-          var display = list[f]["display"];
-          var audio = list[f]["audio_codec"];
-          var video = list[f]["video_codec"];
-          Janus.debug("  >> [" + id + "] " + display + " (audio: " + audio + ", video: " + video + ")");
-          newRemoteFeed(id, display, audio, video);
-        }
-      }
+      onJoin(msg)
     } else if(event === "destroyed") {
-      // The room has been destroyed
-      Janus.warn("The room has been destroyed!");
-      console.log("The room has been destroyed");
+      onVideoRoomDestroyed(msg)
     } else if(event === "event") {
-      // Any new feed to attach to?
-      if(msg["publishers"]) {
-        var list = msg["publishers"];
-        Janus.debug("Got a list of available publishers/feeds:", list);
-        for(var f in list) {
-          var id = list[f]["id"];
-          var display = list[f]["display"];
-          var audio = list[f]["audio_codec"];
-          var video = list[f]["video_codec"];
-          Janus.debug("  >> [" + id + "] " + display + " (audio: " + audio + ", video: " + video + ")");
-          newRemoteFeed(id, display, audio, video);
-        }
-      } else if(msg["leaving"]) {
-        // One of the publishers has gone away?
-        var leaving = msg["leaving"];
-        Janus.log("Publisher left: " + leaving);
-        var remoteFeed = null;
-        for(var i=1; i<6; i++) {
-          if(feeds[i] && feeds[i].rfid == leaving) {
-            remoteFeed = feeds[i];
-            break;
-          }
-        }
-        if(remoteFeed != null) {
-          Janus.debug("Feed " + remoteFeed.rfid + " (" + remoteFeed.rfdisplay + ") has left the room, detaching");
-          $('#remote'+remoteFeed.rfindex).empty().hide();
-          $('#videoremote'+remoteFeed.rfindex).empty();
-          feeds[remoteFeed.rfindex] = null;
-          remoteFeed.detach();
-        }
-      } else if(msg["unpublished"]) {
-        // One of the publishers has unpublished?
-        var unpublished = msg["unpublished"];
-        Janus.log("Publisher left: " + unpublished);
-        if(unpublished === 'ok') {
-          // That's us
-          sfutest.hangup();
-          return;
-        }
-        var remoteFeed = null;
-        for(var i=1; i<6; i++) {
-          if(feeds[i] && feeds[i].rfid == unpublished) {
-            remoteFeed = feeds[i];
-            break;
-          }
-        }
-        if(remoteFeed != null) {
-          Janus.debug("Feed " + remoteFeed.rfid + " (" + remoteFeed.rfdisplay + ") has left the room, detaching");
-          $('#remote'+remoteFeed.rfindex).empty().hide();
-          $('#videoremote'+remoteFeed.rfindex).empty();
-          feeds[remoteFeed.rfindex] = null;
-          remoteFeed.detach();
-        }
-      } else if(msg["error"]) {
-        if(msg["error_code"] === 426) {
-          // This is a "no such room" error: give a more meaningful description
-          console.log(
-            "<p>Apparently room <code>" + roomName + "</code> (the one this demo uses as a test room) " +
-            "does not exist...</p><p>Do you have an updated <code>janus.plugin.videoroom.jcfg</code> " +
-            "configuration file? If not, make sure you copy the details of room <code>" + roomName + "</code> " +
-            "from that sample in your current configuration file, then restart Janus and try again."
-          );
-        } else {
-          console.log(msg["error"]);
-        }
-      }
+      handleVideRoomEvent(msg)
     }
   }
   if(jsep) {
-    Janus.debug("Handling SDP as well...", jsep);
-    sfutest.handleRemoteJsep({ jsep: jsep });
-    // Check if any of the media we wanted to publish has
-    // been rejected (e.g., wrong or unsupported codec)
-    var audio = msg["audio_codec"];
-    if(mystream && mystream.getAudioTracks() && mystream.getAudioTracks().length > 0 && !audio) {
-      // Audio has been rejected
-      toastr.warning("Our audio stream has been rejected, viewers won't hear us");
-    }
-    var video = msg["video_codec"];
-    if(mystream && mystream.getVideoTracks() && mystream.getVideoTracks().length > 0 && !video) {
-      // Video has been rejected
-      toastr.warning("Our video stream has been rejected, viewers won't see us");
-      // Hide the webcam video
-      $('#myvideo').hide();
-      $('#videolocal').append(
-        '<div class="no-video-container">' +
-        '<i class="fa fa-video-camera fa-5 no-video-icon" style="height: 100%;"></i>' +
-        '<span class="no-video-text" style="font-size: 16px;">Video rejected, no webcam</span>' +
-        '</div>');
-    }
+    handleJsep(jsep, msg.audio_codec, msg.video_codec)
   }
 }
 
 function onVrLocalStream(stream){
   mystream = stream
-  //$('#videojoin').hide();
-  //$('#videos').removeClass('hide').show();
+  
   if($('#myvideo').length === 0) {
     $('#videolocal').append('<video class="rounded centered" id="myvideo" width="100%" height="100%" autoplay playsinline muted="muted"/>');
     // Add a 'mute' button
   }
-  $('#publisher').removeClass('hide').html(myusername).show();
+  console.log("Received local stream")
+
   Janus.attachMediaStream($('#myvideo').get(0), stream);
-  $("#myvideo").get(0).muted = "muted";
+  
   if(sfutest.webrtcStuff.pc.iceConnectionState !== "completed" &&
     sfutest.webrtcStuff.pc.iceConnectionState !== "connected") {
 
@@ -246,17 +197,10 @@ function onVrLocalStream(stream){
   var videoTracks = stream.getVideoTracks();
   if(!videoTracks || videoTracks.length === 0) {
     // No webcam
-    $('#myvideo').hide();
-    if($('#videolocal .no-video-container').length === 0) {
-      $('#videolocal').append(
-        '<div class="no-video-container">' +
-        '<i class="fa fa-video-camera fa-5 no-video-icon"></i>' +
-        '<span class="no-video-text">No webcam available</span>' +
-        '</div>');
-    }
+    
+    // TODO: handle no webcam
   } else {
-    $('#videolocal .no-video-container').remove();
-    $('#myvideo').removeClass('hide').show();
+    // TODO: show video container
   }
 }
 
@@ -369,37 +313,17 @@ function newRemoteFeed(id, display, audio, video) {
         // The subscriber stream is recvonly, we don't expect anything here
       },
       onremotestream: function(stream) {
-        Janus.debug("Remote feed #" + remoteFeed.rfindex + ", stream:", stream);
-        var addButtons = false;
-        if($('#remotevideo'+remoteFeed.rfindex).length === 0) {
-          addButtons = true;
-          // No remote video yet
-          $('#videoremote'+remoteFeed.rfindex).append('<video class="rounded centered" id="waitingvideo' + remoteFeed.rfindex + '" width=320 height=240 />');
-          $('#videoremote'+remoteFeed.rfindex).append('<video class="rounded centered relative hide" id="remotevideo' + remoteFeed.rfindex + '" width="100%" height="100%" autoplay playsinline/>');
-          $('#videoremote'+remoteFeed.rfindex).append(
-            '<span class="label label-primary hide" id="curres'+remoteFeed.rfindex+'" style="position: absolute; bottom: 0px; left: 0px; margin: 15px;"></span>' +
-            '<span class="label label-info hide" id="curbitrate'+remoteFeed.rfindex+'" style="position: absolute; bottom: 0px; right: 0px; margin: 15px;"></span>');
-          // Show the video, hide the spinner and show the resolution when we get a playing event
-          $("#remotevideo"+remoteFeed.rfindex).bind("playing", function () {
-            if(remoteFeed.spinner)
-              remoteFeed.spinner.stop();
-            remoteFeed.spinner = null;
-            $('#waitingvideo'+remoteFeed.rfindex).remove();
-            if(this.videoWidth)
-              $('#remotevideo'+remoteFeed.rfindex).removeClass('hide').show();
-            var width = this.videoWidth;
-            var height = this.videoHeight;
-            $('#curres'+remoteFeed.rfindex).removeClass('hide').text(width+'x'+height).show();
-            if(Janus.webRTCAdapter.browserDetails.browser === "firefox") {
-              // Firefox Stable has a bug: width and height are not immediately available after a playing
-              setTimeout(function() {
-                var width = $("#remotevideo"+remoteFeed.rfindex).get(0).videoWidth;
-                var height = $("#remotevideo"+remoteFeed.rfindex).get(0).videoHeight;
-                $('#curres'+remoteFeed.rfindex).removeClass('hide').text(width+'x'+height).show();
-              }, 2000);
-            }
-          });
+        console.log("Remote feed #" + remoteFeed.rfindex + ", stream:", stream);
+        if(stream.getVideoTracks().length === 0){
+          console.log("Stream has no video track")
         }
+        if($('#remotevideo'+remoteFeed.rfindex).length === 0) {
+          $('#videoremote-container').append('<div id="remotevideo-container'+ remoteFeed.rfindex + '"><video class="rounded centered relative" id="remotevideo' + remoteFeed.rfindex + '" width="100%" height="100%" autoplay playsinline/></div>')
+          $("#remotevideo"+remoteFeed.rfindex).bind("playing")          
+        }
+        
+
+
         Janus.attachMediaStream($('#remotevideo'+remoteFeed.rfindex).get(0), stream);
         var videoTracks = stream.getVideoTracks();
         if(!videoTracks || videoTracks.length === 0) {
@@ -415,22 +339,6 @@ function newRemoteFeed(id, display, audio, video) {
         } else {
           $('#videoremote'+remoteFeed.rfindex+ ' .no-video-container').remove();
           $('#remotevideo'+remoteFeed.rfindex).removeClass('hide').show();
-        }
-        if(!addButtons)
-          return;
-        if(Janus.webRTCAdapter.browserDetails.browser === "chrome" || Janus.webRTCAdapter.browserDetails.browser === "firefox" ||
-          Janus.webRTCAdapter.browserDetails.browser === "safari") {
-          $('#curbitrate'+remoteFeed.rfindex).removeClass('hide').show();
-          bitrateTimer[remoteFeed.rfindex] = setInterval(function() {
-            // Display updated bitrate, if supported
-            var bitrate = remoteFeed.getBitrate();
-            $('#curbitrate'+remoteFeed.rfindex).text(bitrate);
-            // Check if the resolution changed too
-            var width = $("#remotevideo"+remoteFeed.rfindex).get(0).videoWidth;
-            var height = $("#remotevideo"+remoteFeed.rfindex).get(0).videoHeight;
-            if(width > 0 && height > 0)
-              $('#curres'+remoteFeed.rfindex).removeClass('hide').text(width+'x'+height).show();
-          }, 1000);
         }
       },
       oncleanup: function() {
@@ -453,29 +361,15 @@ function newRemoteFeed(id, display, audio, video) {
 }
 function publishOwnFeed(useAudio) {
   // Publish our stream
-  $('#publish').attr('disabled', true).unbind('click');
   sfutest.createOffer(
     {
       // Add data:true here if you want to publish datachannels as well
       media: { audioRecv: false, videoRecv: false, audioSend: useAudio, videoSend: true },	// Publishers are sendonly
-      // If you want to test simulcasting (Chrome and Firefox only), then
-      // pass a ?simulcast=true when opening this demo page: it will turn
-      // the following 'simulcast' property to pass to janus.js to true
       simulcast: true,
       simulcast2: true,
       success: function(jsep) {
         Janus.debug("Got publisher SDP!", jsep);
         var publish = { request: "configure", audio: useAudio, video: true };
-        // You can force a specific codec to use when publishing by using the
-        // audiocodec and videocodec properties, for instance:
-        // 		publish["audiocodec"] = "opus"
-        // to force Opus as the audio codec to use, or:
-        // 		publish["videocodec"] = "vp9"
-        // to force VP9 as the videocodec to use. In both case, though, forcing
-        // a codec will only work if: (1) the codec is actually in the SDP (and
-        // so the browser supports it), and (2) the codec is in the list of
-        // allowed codecs in a room. With respect to the point (2) above,
-        // refer to the text in janus.plugin.videoroom.jcfg for more details
         sfutest.send({ message: publish, jsep: jsep });
       },
       error: function(error) {

@@ -11,14 +11,16 @@ var muted = false
  * - rel_alt
  */
 
+// hardcoded value
+let droneId = 'mavros'
 
-
-let mavros = new AviotCopter('mavros', '', 'http://192.168.1.34:9000')
+let mavros = new AviotCopter(droneId, '', 'http://192.168.1.34:9000')
 
 mavros.on('connect', function(){
   console.log('connected')
   $('#video').append('<video class="rounded centered" id="remotevideo" width="100%" height="100%" autoplay playsinline/>')
 })
+
 mavros.on('state', onStateUpdate)
 mavros.on('battery', updateBatteryInfo)
 mavros.on('global_position', onGlobalPosUpdate)
@@ -33,19 +35,24 @@ function onError(err){
 }
 
 function onStreaming(msg){
+  console.log(msg)
+  $('#remotevideo').attr('class', 'rounded centered');
   startJanusStream(msg, $('#remotevideo'));
-console.log(msg)
 }
+
 function onVideoRoom(msg){
   console.log(msg)
-  startJanusVideoRoom(msg, $('#remotevideo'))
+  startJanusVideoRoom(msg, $('#videoroom-container'))
 }
+
 function onGlobalPosUpdate(msg){
   latitude = msg.latitude
   longitude = msg.longitude
   $('#lat').html(latitude)
   $('#lng').html(longitude)
+  updateDronePos(latitude, longitude, droneId, true)
 }
+
 
 function onRelAltUpdate(msg){
   if(Math.round(msg) > 1){
@@ -60,6 +67,7 @@ function onRelAltUpdate(msg){
   }
   $('#alt').html(Math.round(msg * 10) / 10)
 }
+
 function onStateUpdate(data) {
   let className = data.armed ? 'success' : 'danger'
   var info = "Status: " + (data.armed ? 'ARMED' : 'DISARMED')
@@ -75,6 +83,7 @@ function onStateUpdate(data) {
     listenerStatus = false
   }
 }
+
 function updateBatteryInfo (data) {
   let className = ''
   let percentage = Math.round(data.percentage * 100)
@@ -89,11 +98,11 @@ function updateBatteryInfo (data) {
   $('#battery').html(info + "\n")
 }
 
-
 function armThrottle () {
   console.log('arming mavros');
   mavros.armThrottle()
 }
+
 function takeoff() {
   console.log('taking off');
   mavros.takeoff(latitude, longitude, Number($('#altitude').val()))
@@ -103,25 +112,25 @@ function land(){
   mavros.land(latitude, longitude, 0)
 }
 
-
 function startStreaming(){
   mavros.startStreaming()
   $('#streaming').html('STOP STREAMING')
   $('#streaming').attr('onclick', 'stopStreaming()')
   $('#streaming').attr('class', 'btn btn-warning')
-
+  $('#remotevideo-streaming').attr('class', 'col-xs-12 col-xl-12')
 }
+
 function stopStreaming(){
-  stopJanusStream();
   mavros.stopStreaming()
   $('#streaming').html('START STREAMING')
   $('#streaming').attr('onclick', 'startStreaming()')
   $('#streaming').attr('class', 'btn btn-success')
-
+  $('#remotevideo').attr('class', 'rounded centered d-none');
+  $('#remotevideo-streaming').attr('class', 'col-xs-12 col-xl-12 d-none')
+  stopJanusStream();
 }
 
 function startVideoRoom(){
-
   mavros.startVideoRoom()
   $('#videoroom-container').attr('class', 'container-fluid')
   $('#videoroom').html('STOP VIDEO ROOM')
@@ -131,6 +140,7 @@ function startVideoRoom(){
   $('#mute-mic').attr('class', 'btn btn-warning')
   muted = false
 }
+
 function stopVideoRoom(){
   stopJanusVideoRoom()
   mavros.stopVideoRoom()
@@ -348,3 +358,4 @@ function getGamepadState() {
         }
     }
 }
+  

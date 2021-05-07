@@ -8,11 +8,12 @@ console.log("Starting Janus Service")
 Janus.init({debug: 'all', callback: onInitJanus})
 
 function onInitJanus(){
-  Janus.log("Janus init ok!")
+  console.log("Janus init ok!")
   $('#streaming').attr('disabled', false)
 }
 
 function startJanusStream (msg, videoElement){
+  console.log(videoElement)
   videoEl = videoElement
   streamId = msg.janus_feed_id
   janus = new Janus({
@@ -31,32 +32,32 @@ function onCreateJanusSuccess() {
     success: onAttachSuccess,
     error: onAttachError,
     iceState: function(state) {
-      Janus.log("ICE state changed to " + state);
+      console.log("ICE state changed to " + state);
     },
     webrtcState: function(on) {
-      Janus.log("Janus says our WebRTC PeerConnection is " + (on ? "up" : "down") + " now");
+      console.log("Janus says our WebRTC PeerConnection is " + (on ? "up" : "down") + " now");
     },
     onmessage: onAttachMessage,
     onremotestream: onRemoteStream
   })
 }
 function onCreateJanusError(error){
-  Janus.log(error)
-  alert(error.toString())
+  console.log(error)
+  
 }
 
 function onJanusDestroyed(){
-  alert("Janus destroyed")
+  console.log("Janus destroyed")
 }
 
 function onAttachError(err) {
-  Janus.log(err)
+  console.log(err)
 }
 function onAttachSuccess(pluginHandle){
   streaming = pluginHandle
   var body = { request: "watch", id: parseInt(streamId)};
   streaming.send({ message: body })
-  Janus.log('Streaming plugin attached')
+  console.log('Streaming plugin attached')
 }
 function onAttachMessage(msg, jsep){
   Janus.debug(" ::: Got a message :::", msg);
@@ -79,7 +80,7 @@ function onAttachMessage(msg, jsep){
       console.log("EVENT message", msg)
     }
   } else if(msg["error"]) {
-    alert(msg["error"]);
+    
     //stopStream();
     return;
   }
@@ -111,10 +112,13 @@ function onAttachMessage(msg, jsep){
 }
 
 function onRemoteStream(stream){
+  console.log("Remote stream")
   Janus.attachMediaStream(videoEl.get(0), stream)
 }
 
 function stopJanusStream(){
-  streaming.send({ message: { request: "stop" } });
   streaming.hangup();
+  streaming.send({ message: { request: "stop" } });
+  streaming.detach()
+  janus.destroy()
 }
