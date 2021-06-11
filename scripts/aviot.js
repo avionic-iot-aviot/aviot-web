@@ -31,6 +31,7 @@ class AviotCopter {
     __emit(event){
       return function(data) {
         this._emit(event, data)
+        console.log(data)
       }.bind(this)
     }
     _onError(error){
@@ -56,7 +57,6 @@ class AviotCopter {
     }
     land(lat, lng, alt){
       this.socket.emit('land', {copterId: this.copterId, latitude: lat, longitude: lng, altitude: alt} )
-
     }
     cmdVel(linear={x:0, y:0, z:0}, angular={x:0, y:0, z:0}){
       this.socket.emit('cmd_vel', {copterId: this.copterId, linear: linear, angular: angular})
@@ -76,5 +76,18 @@ class AviotCopter {
     stopVideoRoom(){
       console.log("Sending stop video room")
       this.socket.emit('video_room', {copterId: this.copterId, action: 'stop'})
+    }
+
+    setFence(mode, points){
+      console.log("Sending set fence event")
+      this.socket.emit('fence', { copterId: this.copterId, action: 'set', data: { mode, points } })
+    }
+    delFence(fenceId){
+      console.log("Sending delete fence event")
+      this.socket.emit('fence', { copterId: this.copterId, action: 'delete', data: { fenceId } })
+    }
+    resetFence(){
+      console.log("Sending reset fence event")
+      this.socket.emit('fence', { copterId: this.copterId, action: 'reset'})
     }
   }

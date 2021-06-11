@@ -69,6 +69,7 @@ function onRelAltUpdate(msg){
 }
 
 function onStateUpdate(data) {
+  console.log(data)
   let className = data.armed ? 'success' : 'danger'
   var info = "Status: " + (data.armed ? 'ARMED' : 'DISARMED')
   info = '<div class="alert alert-' + className +'" role="alert">'+ info +'</div>'
